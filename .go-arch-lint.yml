@@ -1,0 +1,76 @@
+version: 3
+workdir: ./
+
+allow:
+  depOnAnyVendor: false
+  deepScan: false
+  ignoreNotFoundComponents: false
+
+excludeFiles:
+  - '_test\.go$'
+
+components:
+  common:           { in: [pkg/ctxlog, pkg/contracts] }
+  grpc-api:         { in: pkg/grpc/pollv1 }
+  model:            { in: internal/domain/model/** }
+  repository-iface: { in: internal/domain/repository/** }
+  service-iface:    { in: internal/domain/service/** }
+  usecase-iface:    { in: internal/domain/usecase/** }
+  usecase-impl:     { in: internal/usecase/** }
+  repository-impl:  { in: internal/repository/** }
+  storage:          { in: internal/infrastructure/storage/postgres }
+  infrastructure:   { in: [internal/infrastructure/broker/**, internal/infrastructure/clients/**, internal/infrastructure/outbox, internal/infrastructure/httpserver, internal/infrastructure/probe] }
+  transport-http:       { in: internal/transport/http }
+  transport-dto:        { in: internal/transport/http/dto }
+  transport-middleware: { in: internal/transport/http/middleware }
+  cmd:              { in: cmd/** }
+
+commonComponents:
+  - common
+
+vendors:
+  uuid:
+    in:
+      - github.com/google/uuid
+
+deps:
+  grpc-api:
+    anyVendorDeps: true
+
+  repository-iface:
+    mayDependOn: [model]
+
+  service-iface:
+    mayDependOn: [model]
+
+  usecase-iface:
+    mayDependOn: [model]
+
+  usecase-impl:
+    mayDependOn: [model, repository-iface, service-iface, usecase-iface]
+
+  repository-impl:
+    mayDependOn: [model, repository-iface, storage]
+    anyVendorDeps: true
+
+  infrastructure:
+    mayDependOn: [model, repository-iface, service-iface, grpc-api]
+    anyVendorDeps: true
+
+  storage:
+    anyVendorDeps: true
+
+  transport-http:
+    mayDependOn: [model, usecase-iface, transport-dto, transport-middleware]
+    anyVendorDeps: true
+
+  transport-dto:
+    mayDependOn: [model]
+
+  transport-middleware:
+    mayDependOn: [model, transport-dto]
+    anyVendorDeps: true
+
+  cmd:
+    anyProjectDeps: true
+    anyVendorDeps: true
