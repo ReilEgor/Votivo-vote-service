@@ -8,6 +8,9 @@ var (
 	ErrPollNotActive          = errors.New("poll is not active")
 	ErrPollServiceUnavailable = errors.New("poll service is temporarily unavailable")
 
+	// ErrInvalidEvent marks a broker message that no retry can fix, such as a body that does not decode.
+	ErrInvalidEvent = errors.New("invalid event")
+
 	ErrAlreadyVoted      = errors.New("user has already voted in this poll")
 	ErrVoteNotFound      = errors.New("vote not found")
 	ErrVoteNotChangeable = errors.New("vote cannot be changed or revoked in this poll")

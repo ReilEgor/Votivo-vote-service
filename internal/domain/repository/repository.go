@@ -30,6 +30,17 @@ type VoteRepository interface {
 	VoteWriter
 }
 
+// PollRepository keeps the copy of the polls Vote Service learns from Poll Service events.
+type PollRepository interface {
+	// GetPoll returns the poll, or model.ErrPollNotFound when no event about it has arrived.
+	GetPoll(ctx context.Context, id string) (model.Poll, error)
+	// Save stores the rules and questions of a started poll. The status of a poll that has already ended stays,
+	// so a redelivered start event does not reopen it.
+	Save(ctx context.Context, poll model.Poll) error
+	// SetStatus moves the poll to the status, also when the start event has not arrived yet.
+	SetStatus(ctx context.Context, id string, status model.PollStatus) error
+}
+
 // OutboxRepository stores the messages that must reach the broker.
 type OutboxRepository interface {
 	// Insert adds a message in the transaction carried by ctx.

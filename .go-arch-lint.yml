@@ -18,8 +18,9 @@ components:
   usecase-impl:     { in: internal/usecase/** }
   repository-impl:  { in: internal/repository/** }
   storage:          { in: internal/infrastructure/storage/postgres }
-  infrastructure:   { in: [internal/infrastructure/broker/**, internal/infrastructure/clients/**, internal/infrastructure/outbox, internal/infrastructure/httpserver, internal/infrastructure/probe] }
+  infrastructure:   { in: [internal/infrastructure/broker/**, internal/infrastructure/outbox, internal/infrastructure/httpserver, internal/infrastructure/probe] }
   transport-http:       { in: internal/transport/http }
+  transport-amqp:       { in: internal/transport/amqp }
   transport-dto:        { in: internal/transport/http/dto }
   transport-middleware: { in: internal/transport/http/middleware }
   cmd:              { in: cmd/** }
@@ -59,6 +60,10 @@ deps:
   transport-http:
     mayDependOn: [model, usecase-iface, transport-dto, transport-middleware]
     anyVendorDeps: true
+
+  transport-amqp:
+    mayDependOn: [model, usecase-iface]
+    anyVendorDeps: false
 
   transport-dto:
     mayDependOn: [model]
