@@ -83,8 +83,8 @@ func providePublisher(conn *rabbitmq.Connection) *rabbitmq.Publisher {
 	return rabbitmq.NewPublisher(conn, contracts.ExchangeVotes)
 }
 
-func provideRouter(h *votehttp.Handler) (*gin.Engine, error) {
-	router, err := votehttp.NewRouter(h, probe.NewHandler(commit))
+func provideRouter(cfg Config, h *votehttp.Handler) (*gin.Engine, error) {
+	router, err := votehttp.NewRouter(h, probe.NewHandler(commit), cfg.InternalAuthSecret)
 	if err != nil {
 		return nil, fmt.Errorf("create router: %w", err)
 	}
