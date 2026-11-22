@@ -11,5 +11,5 @@ import (
 type PollProvider interface {
 	// GetPoll returns the poll, model.ErrPollNotFound when it does not exist,
 	// or model.ErrPollServiceUnavailable when Poll Service cannot answer.
-	GetPoll(ctx context.Context, id int64) (model.Poll, error)
+	GetPoll(ctx context.Context, id string) (model.Poll, error)
 }

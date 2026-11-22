@@ -62,9 +62,9 @@ func (c *Connection) Channel(ctx context.Context) (*amqp.Channel, error) {
 	return ch, nil
 }
 
-// DeclareQueues creates the durable queues, so a message published before its consumer starts is not lost.
-func (c *Connection) DeclareQueues(ctx context.Context, names ...string) error {
-	const op = "Connection.DeclareQueues"
+// DeclareTopicExchange creates a durable topic exchange. Declaring an existing one with the same settings is a no-op.
+func (c *Connection) DeclareTopicExchange(ctx context.Context, name string) error {
+	const op = "Connection.DeclareTopicExchange"
 
 	ch, err := c.Channel(ctx)
 	if err != nil {
@@ -72,10 +72,8 @@ func (c *Connection) DeclareQueues(ctx context.Context, names ...string) error {
 	}
 	defer closeChannel(ctx, ch)
 
-	for _, name := range names {
-		if _, err = ch.QueueDeclare(name, true, false, false, false, nil); err != nil {
-			return fmt.Errorf("%s: declare %q: %w", op, name, err)
-		}
+	if err = ch.ExchangeDeclare(name, amqp.ExchangeTopic, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("%s: declare %q: %w", op, name, err)
 	}
 	return nil
 }

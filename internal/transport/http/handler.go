@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/model"
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/usecase"
@@ -103,13 +103,13 @@ func (h *Handler) Status(c *gin.Context) {
 
 // parseVote reads the poll ID and the body and checks their format. On failure it attaches the error
 // to the request and returns false.
-func parseVote(c *gin.Context) (int64, []model.Answer, bool) {
+func parseVote(c *gin.Context) (string, []model.Answer, bool) {
 	pollID, idErr := parsePollID(c)
 
 	var req dto.VoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, middleware.BodyError{Err: err})
-		return 0, nil, false
+		return "", nil, false
 	}
 
 	errs := validateAnswers(req.Answers)
@@ -118,19 +118,31 @@ func parseVote(c *gin.Context) (int64, []model.Answer, bool) {
 	}
 	if len(errs) > 0 {
 		middleware.Fail(c, middleware.ValidationError{Errs: errs})
-		return 0, nil, false
+		return "", nil, false
 	}
+	canonicalize(req.Answers)
 	return pollID, req.ToAnswers(), true
 }
 
-var errInvalidPollID = errors.New("poll_id must be a positive integer")
-
-func parsePollID(c *gin.Context) (int64, error) {
-	id, err := strconv.ParseInt(c.Param("poll_id"), 10, 64)
-	if err != nil || id <= 0 {
-		return 0, errInvalidPollID
+// canonicalize rewrites the validated UUIDs in lower case, the form Poll Service publishes them in.
+func canonicalize(answers []dto.AnswerDTO) {
+	for i := range answers {
+		answers[i].QuestionID = uuid.MustParse(answers[i].QuestionID).String()
+		for j, id := range answers[i].OptionIDs {
+			answers[i].OptionIDs[j] = uuid.MustParse(id).String()
+		}
 	}
-	return id, nil
+}
+
+var errInvalidPollID = errors.New("poll_id must be a UUID")
+
+// parsePollID returns the poll ID in its canonical lower-case form.
+func parsePollID(c *gin.Context) (string, error) {
+	id, err := uuid.Parse(c.Param("poll_id"))
+	if err != nil {
+		return "", errInvalidPollID
+	}
+	return id.String(), nil
 }
 
 // validateAnswers checks the format of the answers against the limits of a poll. Whether the IDs exist
@@ -144,12 +156,17 @@ func validateAnswers(answers []dto.AnswerDTO) []error {
 		errs = append(errs, fmt.Errorf("answers must not exceed %d questions", model.MaxQuestions))
 	}
 	for i, a := range answers {
-		if a.QuestionID <= 0 {
-			errs = append(errs, fmt.Errorf("answers[%d].question_id must be a positive integer", i))
+		if _, err := uuid.Parse(a.QuestionID); err != nil {
+			errs = append(errs, fmt.Errorf("answers[%d].question_id must be a UUID", i))
 		}
 		if len(a.OptionIDs) == 0 || len(a.OptionIDs) > model.MaxOptionsPerQuestion {
 			errs = append(errs, fmt.Errorf("answers[%d].option_ids must hold 1 to %d options",
 				i, model.MaxOptionsPerQuestion))
+		}
+		for j, id := range a.OptionIDs {
+			if _, err := uuid.Parse(id); err != nil {
+				errs = append(errs, fmt.Errorf("answers[%d].option_ids[%d] must be a UUID", i, j))
+			}
 		}
 	}
 	return errs

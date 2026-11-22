@@ -22,7 +22,7 @@ const createParticipationQuery = `INSERT INTO participations (poll_id, user_id) 
 const createVoteQuery = `INSERT INTO votes (poll_id, user_id) VALUES ($1, $2) RETURNING id`
 
 const createAnswersQuery = `INSERT INTO vote_answers (vote_id, question_id, option_id)
-SELECT $1, question_id, option_id FROM unnest($2::bigint[], $3::bigint[]) AS a (question_id, option_id)`
+SELECT $1, question_id, option_id FROM unnest($2::uuid[], $3::uuid[]) AS a (question_id, option_id)`
 
 const hasVotedQuery = `SELECT EXISTS (SELECT 1 FROM participations WHERE poll_id = $1 AND user_id = $2)`
 
@@ -74,7 +74,7 @@ func (r *VoteRepository) Create(ctx context.Context, vote model.Vote) error {
 }
 
 // HasVoted reports whether the user has taken part in the poll.
-func (r *VoteRepository) HasVoted(ctx context.Context, pollID int64, userID string) (bool, error) {
+func (r *VoteRepository) HasVoted(ctx context.Context, pollID, userID string) (bool, error) {
 	const op = "VoteRepository.HasVoted"
 
 	var voted bool
@@ -87,7 +87,7 @@ func (r *VoteRepository) HasVoted(ctx context.Context, pollID int64, userID stri
 }
 
 // GetByUser returns the ballot of the user, or model.ErrVoteNotFound.
-func (r *VoteRepository) GetByUser(ctx context.Context, pollID int64, userID string) (model.Vote, error) {
+func (r *VoteRepository) GetByUser(ctx context.Context, pollID, userID string) (model.Vote, error) {
 	const op = "VoteRepository.GetByUser"
 
 	rows, err := sharedPostgres.Executor(ctx, r.pool).Query(ctx, getAnswersByUserQuery, pollID, userID)
@@ -98,7 +98,7 @@ func (r *VoteRepository) GetByUser(ctx context.Context, pollID int64, userID str
 
 	var answers []model.Answer
 	for rows.Next() {
-		var questionID, optionID int64
+		var questionID, optionID string
 		if err = rows.Scan(&questionID, &optionID); err != nil {
 			return model.Vote{}, fmt.Errorf("%s: scan: %w", op, err)
 		}
@@ -114,7 +114,7 @@ func (r *VoteRepository) GetByUser(ctx context.Context, pollID int64, userID str
 }
 
 // Delete removes the participation and the ballot, or returns model.ErrVoteNotFound.
-func (r *VoteRepository) Delete(ctx context.Context, pollID int64, userID string) error {
+func (r *VoteRepository) Delete(ctx context.Context, pollID, userID string) error {
 	const op = "VoteRepository.Delete"
 
 	db := sharedPostgres.Executor(ctx, r.pool)
@@ -138,7 +138,7 @@ func isUniqueViolation(err error) bool {
 }
 
 // flatten turns the answers into two parallel slices, one entry per chosen option, for unnest.
-func flatten(answers []model.Answer) (questionIDs, optionIDs []int64) {
+func flatten(answers []model.Answer) (questionIDs, optionIDs []string) {
 	for _, a := range answers {
 		for _, optionID := range a.OptionIDs {
 			questionIDs = append(questionIDs, a.QuestionID)
@@ -149,10 +149,10 @@ func flatten(answers []model.Answer) (questionIDs, optionIDs []int64) {
 }
 
 // appendOption adds the option to the answer of its question; rows arrive ordered by question.
-func appendOption(answers []model.Answer, questionID, optionID int64) []model.Answer {
+func appendOption(answers []model.Answer, questionID, optionID string) []model.Answer {
 	if n := len(answers); n > 0 && answers[n-1].QuestionID == questionID {
 		answers[n-1].OptionIDs = append(answers[n-1].OptionIDs, optionID)
 		return answers
 	}
-	return append(answers, model.Answer{QuestionID: questionID, OptionIDs: []int64{optionID}})
+	return append(answers, model.Answer{QuestionID: questionID, OptionIDs: []string{optionID}})
 }

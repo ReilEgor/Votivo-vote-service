@@ -9,9 +9,10 @@ package main
 import (
 	"context"
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/repository"
-	"github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/broker/rabbitmq"
+	"github.com/ReilEgor/Votivo-vote-service/internal/domain/service"
 	postgres2 "github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/storage/postgres"
 	"github.com/ReilEgor/Votivo-vote-service/internal/repository/postgres"
+	"github.com/ReilEgor/Votivo-vote-service/internal/transport/amqp"
 	"github.com/ReilEgor/Votivo-vote-service/internal/transport/http"
 	"github.com/ReilEgor/Votivo-vote-service/internal/usecase"
 	"github.com/google/wire"
@@ -20,37 +21,33 @@ import (
 // Injectors from wire.go:
 
 func initApp(ctx context.Context, cfg Config) (*App, func(), error) {
-	pollProvider, cleanup, err := providePolls(cfg)
+	pool, cleanup, err := providePool(ctx, cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	pool, cleanup2, err := providePool(ctx, cfg)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
+	pollRepository := postgres.NewPollRepository(pool)
 	voteRepository := postgres.NewVoteRepository(pool)
 	outboxRepository := postgres.NewOutboxRepository(pool)
 	transactor := postgres2.NewTransactor(pool)
-	voteUseCase := usecase.NewVoteUseCase(pollProvider, voteRepository, outboxRepository, transactor)
+	voteUseCase := usecase.NewVoteUseCase(pollRepository, voteRepository, outboxRepository, transactor)
 	handler := http.NewHandler(voteUseCase)
 	engine, err := provideRouter(handler)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	connection, cleanup3, err := provideBroker(ctx, cfg)
+	connection, cleanup2, err := provideBroker(ctx, cfg)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	publisher := rabbitmq.NewPublisher(connection)
+	publisher := providePublisher(connection)
 	relay := provideRelay(cfg, outboxRepository, transactor, publisher)
-	app := newApp(engine, relay)
+	pollEventUseCase := usecase.NewPollEventUseCase(pollRepository)
+	amqpHandler := amqp.NewHandler(pollEventUseCase)
+	pollEventConsumer := newPollEventConsumer(connection, amqpHandler)
+	app := newApp(engine, relay, pollEventConsumer)
 	return app, func() {
-		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -60,10 +57,12 @@ func initApp(ctx context.Context, cfg Config) (*App, func(), error) {
 
 // repositorySet provides the repositories and the transactor. Replacing it switches the storage.
 var repositorySet = wire.NewSet(
-	providePool, postgres2.NewTransactor, wire.Bind(new(repository.Transactor), new(*postgres2.Transactor)), postgres.NewVoteRepository, wire.Bind(new(repository.VoteRepository), new(*postgres.VoteRepository)), postgres.NewOutboxRepository, wire.Bind(new(repository.OutboxRepository), new(*postgres.OutboxRepository)),
+	providePool, postgres2.NewTransactor, wire.Bind(new(repository.Transactor), new(*postgres2.Transactor)), postgres.NewVoteRepository, wire.Bind(new(repository.VoteRepository), new(*postgres.VoteRepository)), postgres.NewPollRepository, wire.Bind(new(repository.PollRepository), new(*postgres.PollRepository)), wire.Bind(new(service.PollProvider), new(*postgres.PollRepository)), postgres.NewOutboxRepository, wire.Bind(new(repository.OutboxRepository), new(*postgres.OutboxRepository)),
 )
 
 // brokerSet provides the connection to RabbitMQ and the publisher the outbox relay uses.
 var brokerSet = wire.NewSet(
-	provideBroker, rabbitmq.NewPublisher, provideRelay,
+	provideBroker,
+	providePublisher,
+	provideRelay,
 )

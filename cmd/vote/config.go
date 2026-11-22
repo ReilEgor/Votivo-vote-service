@@ -9,8 +9,4 @@ type Config struct {
 
 	RabbitMQURL    string        `env:"RABBITMQ_URL,required"`
 	OutboxInterval time.Duration `env:"OUTBOX_INTERVAL"       envDefault:"1s"`
-
-	// PollServiceAddr is the host:port of the gRPC server of Poll Service.
-	// When it is empty the service answers from a fixed list of polls, see clients/poll/static.go.
-	PollServiceAddr string `env:"POLL_SERVICE_ADDR"`
 }

@@ -46,9 +46,10 @@ func run() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 3)
 	go func() { errCh <- httpserver.Run(ctx, ":"+cfg.HTTPPort, app.HTTP) }()
 	go func() { errCh <- app.Relay.Run(ctx) }()
+	go func() { errCh <- app.PollEvents.Run(ctx) }()
 
 	slog.InfoContext(ctx, "vote starting",
 		slog.String("http_port", cfg.HTTPPort),
@@ -57,6 +58,7 @@ func run() error {
 
 	err = <-errCh
 	cancel()
+	<-errCh
 	<-errCh
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
