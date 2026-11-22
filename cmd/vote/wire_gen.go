@@ -31,7 +31,7 @@ func initApp(ctx context.Context, cfg Config) (*App, func(), error) {
 	transactor := postgres2.NewTransactor(pool)
 	voteUseCase := usecase.NewVoteUseCase(pollRepository, voteRepository, outboxRepository, transactor)
 	handler := http.NewHandler(voteUseCase)
-	engine, err := provideRouter(handler)
+	engine, err := provideRouter(cfg, handler)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
