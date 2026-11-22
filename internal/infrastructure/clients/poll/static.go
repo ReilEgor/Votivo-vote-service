@@ -7,19 +7,40 @@ import (
 )
 
 // IDs understood by StaticClient. Each one is a poll with fixed rules, so every branch of the API
-// can be exercised before Poll Service exists.
+// can be exercised before Poll Service events reach this service.
 const (
-	StaticChangeable  int64 = 1
-	StaticAnonymous   int64 = 2
-	StaticClosed      int64 = 3
-	StaticFinal       int64 = 4
-	StaticUnavailable int64 = 99
+	StaticChangeable  = "00000000-0000-4000-8000-000000000001"
+	StaticAnonymous   = "00000000-0000-4000-8000-000000000002"
+	StaticClosed      = "00000000-0000-4000-8000-000000000003"
+	StaticFinal       = "00000000-0000-4000-8000-000000000004"
+	StaticUnavailable = "00000000-0000-4000-8000-000000000099"
 )
 
-// StaticClient answers from a fixed list instead of calling Poll Service.
+// IDs of the questions and options of the static polls.
+const (
+	StaticSingleQuestion   = "00000000-0000-4000-8000-000000000011"
+	StaticMultipleQuestion = "00000000-0000-4000-8000-000000000012"
+)
+
+// StaticSingleOptions are the options of the single-choice question, StaticMultipleOptions of the multiple-choice one.
+var (
+	StaticSingleOptions = []string{
+		"00000000-0000-4000-8000-000000000111",
+		"00000000-0000-4000-8000-000000000112",
+		"00000000-0000-4000-8000-000000000113",
+	}
+	StaticMultipleOptions = []string{
+		"00000000-0000-4000-8000-000000000121",
+		"00000000-0000-4000-8000-000000000122",
+		"00000000-0000-4000-8000-000000000123",
+	}
+)
+
+// StaticClient answers from a fixed list instead of asking Poll Service.
 //
-// Polls 1, 2 and 4 are active and have two questions: question 11 takes one of options 111-113, question 12
-// takes any of options 121-123. Poll 1 allows changing the vote, poll 2 is anonymous, poll 4 is final.
+// Polls ...01, ...02 and ...04 are active and have two questions: the single-choice one takes one of three
+// options, the multiple-choice one any of three. Poll ...01 allows changing the vote, ...02 is anonymous,
+// ...04 is final.
 type StaticClient struct{}
 
 // NewStaticClient returns a StaticClient.
@@ -28,10 +49,10 @@ func NewStaticClient() *StaticClient {
 }
 
 // GetPoll returns the fixed poll; unknown IDs do not exist.
-func (StaticClient) GetPoll(_ context.Context, id int64) (model.Poll, error) {
+func (StaticClient) GetPoll(_ context.Context, id string) (model.Poll, error) {
 	questions := []model.Question{
-		{ID: 11, Multiple: false, OptionIDs: []int64{111, 112, 113}},
-		{ID: 12, Multiple: true, OptionIDs: []int64{121, 122, 123}},
+		{ID: StaticSingleQuestion, Multiple: false, OptionIDs: StaticSingleOptions},
+		{ID: StaticMultipleQuestion, Multiple: true, OptionIDs: StaticMultipleOptions},
 	}
 
 	switch id {

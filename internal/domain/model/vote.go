@@ -4,13 +4,13 @@ import "time"
 
 // Answer is the options a user chose for one question.
 type Answer struct {
-	QuestionID int64
-	OptionIDs  []int64
+	QuestionID string
+	OptionIDs  []string
 }
 
 // Vote is the ballot of one user in one poll.
 type Vote struct {
-	PollID  int64
+	PollID  string
 	UserID  string
 	Answers []Answer
 	// Anonymous tells the repository not to link the stored ballot to UserID.
@@ -24,9 +24,11 @@ type VoteStatus struct {
 	Answers []Answer
 }
 
-// OutboxMessage is a message waiting to be published to the broker.
+// OutboxMessage is an event waiting to be published to the broker.
+// EventID travels as the AMQP message_id, so consumers can drop a message delivered twice.
 type OutboxMessage struct {
-	ID      int64
-	Queue   string
-	Payload []byte
+	ID         int64
+	EventID    string
+	RoutingKey string
+	Payload    []byte
 }

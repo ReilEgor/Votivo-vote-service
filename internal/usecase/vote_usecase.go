@@ -36,10 +36,10 @@ func NewVoteUseCase(
 }
 
 // Cast accepts the first vote of the user in an active poll.
-func (u *VoteUseCase) Cast(ctx context.Context, userID string, pollID int64, answers []model.Answer) error {
+func (u *VoteUseCase) Cast(ctx context.Context, userID, pollID string, answers []model.Answer) error {
 	const op = "VoteUseCase.Cast"
 
-	slog.DebugContext(ctx, "called", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.DebugContext(ctx, "called", slog.String("op", op), slog.String("poll_id", pollID))
 
 	poll, err := u.activePoll(ctx, pollID)
 	if err != nil {
@@ -59,15 +59,15 @@ func (u *VoteUseCase) Cast(ctx context.Context, userID string, pollID int64, ans
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	slog.InfoContext(ctx, "vote cast", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.InfoContext(ctx, "vote cast", slog.String("op", op), slog.String("poll_id", pollID))
 	return nil
 }
 
 // Change replaces the vote of the user: the old answers are revoked and the new ones cast in one transaction.
-func (u *VoteUseCase) Change(ctx context.Context, userID string, pollID int64, answers []model.Answer) error {
+func (u *VoteUseCase) Change(ctx context.Context, userID, pollID string, answers []model.Answer) error {
 	const op = "VoteUseCase.Change"
 
-	slog.DebugContext(ctx, "called", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.DebugContext(ctx, "called", slog.String("op", op), slog.String("poll_id", pollID))
 
 	poll, err := u.changeablePoll(ctx, pollID)
 	if err != nil {
@@ -94,15 +94,15 @@ func (u *VoteUseCase) Change(ctx context.Context, userID string, pollID int64, a
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	slog.InfoContext(ctx, "vote changed", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.InfoContext(ctx, "vote changed", slog.String("op", op), slog.String("poll_id", pollID))
 	return nil
 }
 
 // Revoke withdraws the vote of the user.
-func (u *VoteUseCase) Revoke(ctx context.Context, userID string, pollID int64) error {
+func (u *VoteUseCase) Revoke(ctx context.Context, userID, pollID string) error {
 	const op = "VoteUseCase.Revoke"
 
-	slog.DebugContext(ctx, "called", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.DebugContext(ctx, "called", slog.String("op", op), slog.String("poll_id", pollID))
 
 	if _, err := u.changeablePoll(ctx, pollID); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -118,16 +118,16 @@ func (u *VoteUseCase) Revoke(ctx context.Context, userID string, pollID int64) e
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	slog.InfoContext(ctx, "vote revoked", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.InfoContext(ctx, "vote revoked", slog.String("op", op), slog.String("poll_id", pollID))
 	return nil
 }
 
 // Status tells whether the user has voted. It works for a poll in any state, so a user can still see
 // "you have voted" after the poll is closed; the answers are returned only for a non-anonymous poll.
-func (u *VoteUseCase) Status(ctx context.Context, userID string, pollID int64) (model.VoteStatus, error) {
+func (u *VoteUseCase) Status(ctx context.Context, userID, pollID string) (model.VoteStatus, error) {
 	const op = "VoteUseCase.Status"
 
-	slog.DebugContext(ctx, "called", slog.String("op", op), slog.Int64("poll_id", pollID))
+	slog.DebugContext(ctx, "called", slog.String("op", op), slog.String("poll_id", pollID))
 
 	poll, err := u.polls.GetPoll(ctx, pollID)
 	if err != nil {
@@ -147,7 +147,7 @@ func (u *VoteUseCase) Status(ctx context.Context, userID string, pollID int64) (
 	return model.VoteStatus{Voted: true, Answers: vote.Answers}, nil
 }
 
-func (u *VoteUseCase) activePoll(ctx context.Context, pollID int64) (model.Poll, error) {
+func (u *VoteUseCase) activePoll(ctx context.Context, pollID string) (model.Poll, error) {
 	poll, err := u.polls.GetPoll(ctx, pollID)
 	if err != nil {
 		return model.Poll{}, fmt.Errorf("get poll: %w", err)
@@ -158,7 +158,7 @@ func (u *VoteUseCase) activePoll(ctx context.Context, pollID int64) (model.Poll,
 	return poll, nil
 }
 
-func (u *VoteUseCase) changeablePoll(ctx context.Context, pollID int64) (model.Poll, error) {
+func (u *VoteUseCase) changeablePoll(ctx context.Context, pollID string) (model.Poll, error) {
 	poll, err := u.activePoll(ctx, pollID)
 	if err != nil {
 		return model.Poll{}, err
@@ -171,7 +171,7 @@ func (u *VoteUseCase) changeablePoll(ctx context.Context, pollID int64) (model.P
 
 // remove reads the ballot of the user and deletes it. A concurrent revoke finds nothing to delete and fails
 // with model.ErrVoteNotFound, so one vote is never revoked twice.
-func (u *VoteUseCase) remove(ctx context.Context, pollID int64, userID string) (model.Vote, error) {
+func (u *VoteUseCase) remove(ctx context.Context, pollID, userID string) (model.Vote, error) {
 	old, err := u.votes.GetByUser(ctx, pollID, userID)
 	if err != nil {
 		return model.Vote{}, fmt.Errorf("get vote: %w", err)
@@ -182,29 +182,29 @@ func (u *VoteUseCase) remove(ctx context.Context, pollID int64, userID string) (
 	return old, nil
 }
 
-func (u *VoteUseCase) enqueueCast(ctx context.Context, pollID int64, answers []model.Answer) error {
-	return u.enqueue(ctx, contracts.QueueVoteCast, contracts.VoteCastEvent{
+func (u *VoteUseCase) enqueueCast(ctx context.Context, pollID string, answers []model.Answer) error {
+	return u.enqueue(ctx, contracts.RoutingKeyVoteCast, contracts.VoteCastEvent{
 		PollID:    pollID,
 		Answers:   toContract(answers),
 		RequestID: ctxlog.RequestID(ctx),
 	})
 }
 
-func (u *VoteUseCase) enqueueRevoked(ctx context.Context, pollID int64, answers []model.Answer) error {
-	return u.enqueue(ctx, contracts.QueueVoteRevoked, contracts.VoteRevokedEvent{
+func (u *VoteUseCase) enqueueRevoked(ctx context.Context, pollID string, answers []model.Answer) error {
+	return u.enqueue(ctx, contracts.RoutingKeyVoteRevoked, contracts.VoteRevokedEvent{
 		PollID:    pollID,
 		Answers:   toContract(answers),
 		RequestID: ctxlog.RequestID(ctx),
 	})
 }
 
-func (u *VoteUseCase) enqueue(ctx context.Context, queue string, event any) error {
+func (u *VoteUseCase) enqueue(ctx context.Context, routingKey string, event any) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("marshal %s event: %w", queue, err)
+		return fmt.Errorf("marshal %s event: %w", routingKey, err)
 	}
-	if err = u.outbox.Insert(ctx, queue, payload); err != nil {
-		return fmt.Errorf("enqueue %s event: %w", queue, err)
+	if err = u.outbox.Insert(ctx, routingKey, payload); err != nil {
+		return fmt.Errorf("enqueue %s event: %w", routingKey, err)
 	}
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/repository"
 	domainusecase "github.com/ReilEgor/Votivo-vote-service/internal/domain/usecase"
-	"github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/broker/rabbitmq"
 	sharedPostgres "github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/storage/postgres"
 	"github.com/ReilEgor/Votivo-vote-service/internal/repository/postgres"
 	votehttp "github.com/ReilEgor/Votivo-vote-service/internal/transport/http"
@@ -30,7 +29,7 @@ var repositorySet = wire.NewSet(
 // brokerSet provides the connection to RabbitMQ and the publisher the outbox relay uses.
 var brokerSet = wire.NewSet(
 	provideBroker,
-	rabbitmq.NewPublisher,
+	providePublisher,
 	provideRelay,
 )
 

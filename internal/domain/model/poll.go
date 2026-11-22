@@ -20,14 +20,14 @@ const (
 
 // Question is a question of a poll with the IDs of its options.
 type Question struct {
-	ID        int64
+	ID        string
 	Multiple  bool
-	OptionIDs []int64
+	OptionIDs []string
 }
 
 // Poll holds the voting rules Vote Service needs; the poll itself is owned by Poll Service.
 type Poll struct {
-	ID          int64
+	ID          string
 	Status      PollStatus
 	Anonymous   bool
 	AllowChange bool
@@ -54,12 +54,12 @@ func (p Poll) CheckChangeable() error {
 // ValidateAnswers checks that the answers cover every question of the poll exactly once
 // and choose only existing options, one per single-choice question.
 func (p Poll) ValidateAnswers(answers []Answer) error {
-	questions := make(map[int64]Question, len(p.Questions))
+	questions := make(map[string]Question, len(p.Questions))
 	for _, q := range p.Questions {
 		questions[q.ID] = q
 	}
 
-	answered := make(map[int64]struct{}, len(answers))
+	answered := make(map[string]struct{}, len(answers))
 	for _, a := range answers {
 		q, ok := questions[a.QuestionID]
 		if !ok {
@@ -88,11 +88,11 @@ func (q Question) validate(a Answer) error {
 		return ErrTooManyOptions
 	}
 
-	known := make(map[int64]struct{}, len(q.OptionIDs))
+	known := make(map[string]struct{}, len(q.OptionIDs))
 	for _, id := range q.OptionIDs {
 		known[id] = struct{}{}
 	}
-	chosen := make(map[int64]struct{}, len(a.OptionIDs))
+	chosen := make(map[string]struct{}, len(a.OptionIDs))
 	for _, id := range a.OptionIDs {
 		if _, ok := known[id]; !ok {
 			return ErrUnknownOption

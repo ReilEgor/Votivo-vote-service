@@ -10,11 +10,11 @@ import (
 
 func testPoll() model.Poll {
 	return model.Poll{
-		ID:     1,
+		ID:     "p1",
 		Status: model.PollStatusActive,
 		Questions: []model.Question{
-			{ID: 1, Multiple: false, OptionIDs: []int64{10, 11}},
-			{ID: 2, Multiple: true, OptionIDs: []int64{20, 21, 22}},
+			{ID: "q1", Multiple: false, OptionIDs: []string{"o10", "o11"}},
+			{ID: "q2", Multiple: true, OptionIDs: []string{"o20", "o21", "o22"}},
 		},
 	}
 }
@@ -28,60 +28,60 @@ func TestPoll_ValidateAnswers(t *testing.T) {
 		{
 			name: "success - one option and several options",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{10}},
-				{QuestionID: 2, OptionIDs: []int64{20, 22}},
+				{QuestionID: "q1", OptionIDs: []string{"o10"}},
+				{QuestionID: "q2", OptionIDs: []string{"o20", "o22"}},
 			},
 		},
 		{
 			name:    "error - question missing",
-			answers: []model.Answer{{QuestionID: 1, OptionIDs: []int64{10}}},
+			answers: []model.Answer{{QuestionID: "q1", OptionIDs: []string{"o10"}}},
 			wantErr: model.ErrQuestionNotAnswered,
 		},
 		{
 			name: "error - question without options",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{10}},
-				{QuestionID: 2},
+				{QuestionID: "q1", OptionIDs: []string{"o10"}},
+				{QuestionID: "q2"},
 			},
 			wantErr: model.ErrQuestionNotAnswered,
 		},
 		{
 			name: "error - unknown question",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{10}},
-				{QuestionID: 3, OptionIDs: []int64{30}},
+				{QuestionID: "q1", OptionIDs: []string{"o10"}},
+				{QuestionID: "q3", OptionIDs: []string{"o30"}},
 			},
 			wantErr: model.ErrUnknownQuestion,
 		},
 		{
 			name: "error - unknown option",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{20}},
-				{QuestionID: 2, OptionIDs: []int64{20}},
+				{QuestionID: "q1", OptionIDs: []string{"o20"}},
+				{QuestionID: "q2", OptionIDs: []string{"o20"}},
 			},
 			wantErr: model.ErrUnknownOption,
 		},
 		{
 			name: "error - several options for a single-choice question",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{10, 11}},
-				{QuestionID: 2, OptionIDs: []int64{20}},
+				{QuestionID: "q1", OptionIDs: []string{"o10", "o11"}},
+				{QuestionID: "q2", OptionIDs: []string{"o20"}},
 			},
 			wantErr: model.ErrTooManyOptions,
 		},
 		{
 			name: "error - question answered twice",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{10}},
-				{QuestionID: 1, OptionIDs: []int64{11}},
+				{QuestionID: "q1", OptionIDs: []string{"o10"}},
+				{QuestionID: "q1", OptionIDs: []string{"o11"}},
 			},
 			wantErr: model.ErrDuplicateAnswer,
 		},
 		{
 			name: "error - option chosen twice",
 			answers: []model.Answer{
-				{QuestionID: 1, OptionIDs: []int64{10}},
-				{QuestionID: 2, OptionIDs: []int64{20, 20}},
+				{QuestionID: "q1", OptionIDs: []string{"o10"}},
+				{QuestionID: "q2", OptionIDs: []string{"o20", "o20"}},
 			},
 			wantErr: model.ErrDuplicateAnswer,
 		},

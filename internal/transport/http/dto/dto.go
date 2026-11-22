@@ -5,8 +5,8 @@ import "github.com/ReilEgor/Votivo-vote-service/internal/domain/model"
 
 // AnswerDTO is the options chosen for one question.
 type AnswerDTO struct {
-	QuestionID int64   `json:"question_id"`
-	OptionIDs  []int64 `json:"option_ids"`
+	QuestionID string   `json:"question_id"`
+	OptionIDs  []string `json:"option_ids"`
 }
 
 // VoteRequest is the body of POST and PUT /api/v1/polls/:poll_id/vote.

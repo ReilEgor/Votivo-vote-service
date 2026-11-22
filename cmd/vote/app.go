@@ -8,8 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/repository"
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/service"
@@ -41,34 +39,29 @@ func providePool(ctx context.Context, cfg Config) (*pgxpool.Pool, func(), error)
 	return pool, pool.Close, nil
 }
 
-// provideBroker connects to RabbitMQ and declares the queues the outbox publishes to.
+// provideBroker connects to RabbitMQ and declares the exchange the outbox publishes to. The queues are declared
+// by the consumers; the broker definitions of the integration repository create them up front as well.
 func provideBroker(ctx context.Context, cfg Config) (*rabbitmq.Connection, func(), error) {
 	conn, closeConn, err := rabbitmq.NewConnection(ctx, cfg.RabbitMQURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connect to broker: %w", err)
 	}
-	if err = conn.DeclareQueues(ctx, contracts.QueueVoteCast, contracts.QueueVoteRevoked); err != nil {
+	if err = conn.DeclareTopicExchange(ctx, contracts.ExchangeVotes); err != nil {
 		closeConn()
-		return nil, nil, fmt.Errorf("declare queues: %w", err)
+		return nil, nil, fmt.Errorf("declare exchange: %w", err)
 	}
 	return conn, closeConn, nil
 }
 
-// providePolls returns the gRPC client of Poll Service, or the static list while its address is not set.
-func providePolls(cfg Config) (service.PollProvider, func(), error) {
-	if cfg.PollServiceAddr == "" {
-		slog.Warn("POLL_SERVICE_ADDR is not set, answering from the static list of polls")
-		return poll.NewStaticClient(), func() {}, nil
-	}
-	conn, err := grpc.NewClient(cfg.PollServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, nil, fmt.Errorf("create poll service client: %w", err)
-	}
-	return poll.NewGRPCClient(conn), func() {
-		if closeErr := conn.Close(); closeErr != nil {
-			slog.Warn("close poll service client", slog.String("error", closeErr.Error()))
-		}
-	}, nil
+// providePolls returns the static list of polls. Poll Service events replace it in the next change.
+func providePolls() service.PollProvider {
+	slog.Warn("answering from the static list of polls")
+	return poll.NewStaticClient()
+}
+
+// providePublisher returns the publisher of the vote events.
+func providePublisher(conn *rabbitmq.Connection) *rabbitmq.Publisher {
+	return rabbitmq.NewPublisher(conn, contracts.ExchangeVotes)
 }
 
 func provideRouter(h *votehttp.Handler) (*gin.Engine, error) {

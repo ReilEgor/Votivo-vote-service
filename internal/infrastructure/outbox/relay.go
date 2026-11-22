@@ -17,9 +17,9 @@ const (
 	maxAttempts = 5
 )
 
-// Publisher sends a message to a queue and returns once the broker has accepted it.
+// Publisher sends a message to the exchange and returns once the broker has accepted it.
 type Publisher interface {
-	Publish(ctx context.Context, queue string, body []byte) error
+	Publish(ctx context.Context, routingKey, messageID string, body []byte) error
 }
 
 // Relay periodically publishes the pending outbox messages. Delivery is at least once: a crash between the
@@ -87,9 +87,9 @@ func (r *Relay) sendAll(ctx context.Context, msgs []model.OutboxMessage) {
 func (r *Relay) send(ctx context.Context, msg model.OutboxMessage) {
 	const op = "Relay.send"
 
-	if err := r.publisher.Publish(ctx, msg.Queue, msg.Payload); err != nil {
+	if err := r.publisher.Publish(ctx, msg.RoutingKey, msg.EventID, msg.Payload); err != nil {
 		slog.ErrorContext(ctx, "outbox publish failed",
-			slog.String("op", op), slog.Int64("id", msg.ID), slog.String("queue", msg.Queue),
+			slog.String("op", op), slog.Int64("id", msg.ID), slog.String("routing_key", msg.RoutingKey),
 			slog.String("error", err.Error()))
 		if failErr := r.outbox.Fail(ctx, msg.ID, maxAttempts, err.Error()); failErr != nil {
 			slog.ErrorContext(ctx, "outbox mark failed",

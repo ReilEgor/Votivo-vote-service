@@ -10,10 +10,10 @@ import (
 	sharedPostgres "github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/storage/postgres"
 )
 
-const insertOutboxQuery = `INSERT INTO outbox_messages (queue, payload) VALUES ($1, $2)`
+const insertOutboxQuery = `INSERT INTO outbox_messages (routing_key, payload) VALUES ($1, $2)`
 
 // FOR UPDATE SKIP LOCKED lets several relays run side by side without publishing a message twice.
-const fetchPendingOutboxQuery = `SELECT id, queue, payload
+const fetchPendingOutboxQuery = `SELECT id, event_id::text, routing_key, payload
 FROM outbox_messages
 WHERE status = 'PENDING'
 ORDER BY id
@@ -37,10 +37,10 @@ func NewOutboxRepository(pool *pgxpool.Pool) *OutboxRepository {
 }
 
 // Insert adds a message in the transaction carried by ctx.
-func (r *OutboxRepository) Insert(ctx context.Context, queue string, payload []byte) error {
+func (r *OutboxRepository) Insert(ctx context.Context, routingKey string, payload []byte) error {
 	const op = "OutboxRepository.Insert"
 
-	if _, err := sharedPostgres.Executor(ctx, r.pool).Exec(ctx, insertOutboxQuery, queue, payload); err != nil {
+	if _, err := sharedPostgres.Executor(ctx, r.pool).Exec(ctx, insertOutboxQuery, routingKey, payload); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	return nil
@@ -59,7 +59,7 @@ func (r *OutboxRepository) FetchPending(ctx context.Context, limit int) ([]model
 	var msgs []model.OutboxMessage
 	for rows.Next() {
 		var msg model.OutboxMessage
-		if err = rows.Scan(&msg.ID, &msg.Queue, &msg.Payload); err != nil {
+		if err = rows.Scan(&msg.ID, &msg.EventID, &msg.RoutingKey, &msg.Payload); err != nil {
 			return nil, fmt.Errorf("%s: scan: %w", op, err)
 		}
 		msgs = append(msgs, msg)

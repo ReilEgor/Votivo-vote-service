@@ -9,10 +9,10 @@ import (
 
 // pollSpy returns the polls it was given.
 type pollSpy struct {
-	polls map[int64]model.Poll
+	polls map[string]model.Poll
 }
 
-func (s *pollSpy) GetPoll(_ context.Context, id int64) (model.Poll, error) {
+func (s *pollSpy) GetPoll(_ context.Context, id string) (model.Poll, error) {
 	poll, ok := s.polls[id]
 	if !ok {
 		return model.Poll{}, model.ErrPollNotFound
@@ -21,7 +21,7 @@ func (s *pollSpy) GetPoll(_ context.Context, id int64) (model.Poll, error) {
 }
 
 type voteKey struct {
-	pollID int64
+	pollID string
 	userID string
 }
 
@@ -43,7 +43,7 @@ func (s *voteSpy) Create(_ context.Context, vote model.Vote) error {
 	return nil
 }
 
-func (s *voteSpy) Delete(_ context.Context, pollID int64, userID string) error {
+func (s *voteSpy) Delete(_ context.Context, pollID, userID string) error {
 	key := voteKey{pollID, userID}
 	if _, ok := s.votes[key]; !ok {
 		return model.ErrVoteNotFound
@@ -52,7 +52,7 @@ func (s *voteSpy) Delete(_ context.Context, pollID int64, userID string) error {
 	return nil
 }
 
-func (s *voteSpy) GetByUser(_ context.Context, pollID int64, userID string) (model.Vote, error) {
+func (s *voteSpy) GetByUser(_ context.Context, pollID, userID string) (model.Vote, error) {
 	vote, ok := s.votes[voteKey{pollID, userID}]
 	if !ok {
 		return model.Vote{}, model.ErrVoteNotFound
@@ -60,18 +60,18 @@ func (s *voteSpy) GetByUser(_ context.Context, pollID int64, userID string) (mod
 	return vote, nil
 }
 
-func (s *voteSpy) HasVoted(_ context.Context, pollID int64, userID string) (bool, error) {
+func (s *voteSpy) HasVoted(_ context.Context, pollID, userID string) (bool, error) {
 	_, ok := s.votes[voteKey{pollID, userID}]
 	return ok, nil
 }
 
-// outboxSpy records the queues of the messages it received, in order.
+// outboxSpy records the routing keys of the messages it received, in order.
 type outboxSpy struct {
 	queues []string
 }
 
-func (s *outboxSpy) Insert(_ context.Context, queue string, _ []byte) error {
-	s.queues = append(s.queues, queue)
+func (s *outboxSpy) Insert(_ context.Context, routingKey string, _ []byte) error {
+	s.queues = append(s.queues, routingKey)
 	return nil
 }
 

@@ -9,7 +9,6 @@ package main
 import (
 	"context"
 	"github.com/ReilEgor/Votivo-vote-service/internal/domain/repository"
-	"github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/broker/rabbitmq"
 	postgres2 "github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/storage/postgres"
 	"github.com/ReilEgor/Votivo-vote-service/internal/repository/postgres"
 	"github.com/ReilEgor/Votivo-vote-service/internal/transport/http"
@@ -20,13 +19,9 @@ import (
 // Injectors from wire.go:
 
 func initApp(ctx context.Context, cfg Config) (*App, func(), error) {
-	pollProvider, cleanup, err := providePolls(cfg)
+	pollProvider := providePolls()
+	pool, cleanup, err := providePool(ctx, cfg)
 	if err != nil {
-		return nil, nil, err
-	}
-	pool, cleanup2, err := providePool(ctx, cfg)
-	if err != nil {
-		cleanup()
 		return nil, nil, err
 	}
 	voteRepository := postgres.NewVoteRepository(pool)
@@ -36,21 +31,18 @@ func initApp(ctx context.Context, cfg Config) (*App, func(), error) {
 	handler := http.NewHandler(voteUseCase)
 	engine, err := provideRouter(handler)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	connection, cleanup3, err := provideBroker(ctx, cfg)
+	connection, cleanup2, err := provideBroker(ctx, cfg)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	publisher := rabbitmq.NewPublisher(connection)
+	publisher := providePublisher(connection)
 	relay := provideRelay(cfg, outboxRepository, transactor, publisher)
 	app := newApp(engine, relay)
 	return app, func() {
-		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -65,5 +57,7 @@ var repositorySet = wire.NewSet(
 
 // brokerSet provides the connection to RabbitMQ and the publisher the outbox relay uses.
 var brokerSet = wire.NewSet(
-	provideBroker, rabbitmq.NewPublisher, provideRelay,
+	provideBroker,
+	providePublisher,
+	provideRelay,
 )

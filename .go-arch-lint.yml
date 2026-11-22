@@ -11,7 +11,6 @@ excludeFiles:
 
 components:
   common:           { in: [pkg/ctxlog, pkg/contracts] }
-  grpc-api:         { in: pkg/grpc/pollv1 }
   model:            { in: internal/domain/model/** }
   repository-iface: { in: internal/domain/repository/** }
   service-iface:    { in: internal/domain/service/** }
@@ -34,9 +33,6 @@ vendors:
       - github.com/google/uuid
 
 deps:
-  grpc-api:
-    anyVendorDeps: true
-
   repository-iface:
     mayDependOn: [model]
 
@@ -54,7 +50,7 @@ deps:
     anyVendorDeps: true
 
   infrastructure:
-    mayDependOn: [model, repository-iface, service-iface, grpc-api]
+    mayDependOn: [model, repository-iface, service-iface]
     anyVendorDeps: true
 
   storage:
