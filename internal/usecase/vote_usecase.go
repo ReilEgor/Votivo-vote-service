@@ -51,6 +51,9 @@ func (u *VoteUseCase) Cast(ctx context.Context, userID, pollID string, answers [
 
 	vote := model.Vote{PollID: pollID, UserID: userID, Answers: answers, Anonymous: poll.Anonymous}
 	err = u.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := poll.CheckActive(); err != nil {
+			return err
+		}
 		if createErr := u.votes.Create(txCtx, vote); createErr != nil {
 			return fmt.Errorf("create vote: %w", createErr)
 		}
@@ -79,6 +82,9 @@ func (u *VoteUseCase) Change(ctx context.Context, userID, pollID string, answers
 
 	vote := model.Vote{PollID: pollID, UserID: userID, Answers: answers}
 	err = u.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := poll.CheckActive(); err != nil {
+			return err
+		}
 		old, removeErr := u.remove(txCtx, pollID, userID)
 		if removeErr != nil {
 			return removeErr
@@ -104,11 +110,15 @@ func (u *VoteUseCase) Revoke(ctx context.Context, userID, pollID string) error {
 
 	slog.DebugContext(ctx, "called", slog.String("op", op), slog.String("poll_id", pollID))
 
-	if _, err := u.changeablePoll(ctx, pollID); err != nil {
+	poll, err := u.changeablePoll(ctx, pollID)
+	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	err := u.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
+	err = u.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := poll.CheckActive(); err != nil {
+			return err
+		}
 		old, removeErr := u.remove(txCtx, pollID, userID)
 		if removeErr != nil {
 			return removeErr

@@ -48,6 +48,7 @@ func (h *Handler) started(ctx context.Context, body []byte) error {
 		ID:          event.PollID,
 		Anonymous:   event.Anonymous,
 		AllowChange: event.AllowVoteChange,
+		EndsAt:      event.EndsAt,
 		Questions:   make([]model.Question, 0, len(event.Questions)),
 	}
 	for _, q := range event.Questions {

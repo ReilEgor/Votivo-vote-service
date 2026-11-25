@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // Limits of a poll from the requirements specification.
 const (
 	MaxQuestions          = 50
@@ -27,6 +29,7 @@ type Question struct {
 
 // Poll holds the voting rules Vote Service needs; the poll itself is owned by Poll Service.
 type Poll struct {
+	EndsAt      *time.Time
 	ID          string
 	Status      PollStatus
 	Anonymous   bool
@@ -36,7 +39,7 @@ type Poll struct {
 
 // CheckActive returns ErrPollNotActive unless the poll accepts votes.
 func (p Poll) CheckActive() error {
-	if p.Status != PollStatusActive {
+	if p.Status != PollStatusActive || (p.EndsAt != nil && !time.Now().Before(*p.EndsAt)) {
 		return ErrPollNotActive
 	}
 	return nil

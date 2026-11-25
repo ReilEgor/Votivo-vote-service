@@ -13,15 +13,16 @@ import (
 	sharedPostgres "github.com/ReilEgor/Votivo-vote-service/internal/infrastructure/storage/postgres"
 )
 
-const getPollQuery = `SELECT status, anonymous, allow_vote_change, questions FROM polls WHERE id = $1`
+const getPollQuery = `SELECT status, anonymous, allow_vote_change, questions, ends_at FROM polls WHERE id = $1`
 
 // On conflict the status is kept: a start event delivered again, or after the poll has ended, must not reopen it.
-const savePollQuery = `INSERT INTO polls (id, status, anonymous, allow_vote_change, questions)
-VALUES ($1, $2, $3, $4, $5)
+const savePollQuery = `INSERT INTO polls (id, status, anonymous, allow_vote_change, questions, ends_at)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (id) DO UPDATE
 SET anonymous         = EXCLUDED.anonymous,
     allow_vote_change = EXCLUDED.allow_vote_change,
     questions         = EXCLUDED.questions,
+    ends_at           = EXCLUDED.ends_at,
     updated_at        = now()`
 
 // A poll.ended can overtake nothing on one queue, but the row is created when it does so the status is never lost.
@@ -52,7 +53,7 @@ func (r *PollRepository) GetPoll(ctx context.Context, id string) (model.Poll, er
 	var raw []byte
 	err := sharedPostgres.Executor(ctx, r.pool).
 		QueryRow(ctx, getPollQuery, id).
-		Scan(&status, &poll.Anonymous, &poll.AllowChange, &raw)
+		Scan(&status, &poll.Anonymous, &poll.AllowChange, &raw, &poll.EndsAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.Poll{}, model.ErrPollNotFound
 	}
@@ -84,7 +85,7 @@ func (r *PollRepository) Save(ctx context.Context, poll model.Poll) error {
 		return fmt.Errorf("%s: encode questions: %w", op, err)
 	}
 	_, err = sharedPostgres.Executor(ctx, r.pool).
-		Exec(ctx, savePollQuery, poll.ID, string(poll.Status), poll.Anonymous, poll.AllowChange, raw)
+		Exec(ctx, savePollQuery, poll.ID, string(poll.Status), poll.Anonymous, poll.AllowChange, raw, poll.EndsAt)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}

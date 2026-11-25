@@ -1,5 +1,7 @@
 package contracts
 
+import "time"
+
 // ExchangePolls is the durable topic exchange Poll Service publishes its events to. Vote Service only consumes it.
 // Every message carries its event ID as the AMQP message_id.
 const ExchangePolls = "poll.events.exchange"
@@ -41,6 +43,7 @@ type PollQuestion struct {
 // PollStartedEvent is published when a poll is published and starts accepting votes.
 // Its content cannot change afterwards, so the event is the whole snapshot voting needs.
 type PollStartedEvent struct {
+	EndsAt          *time.Time     `json:"ends_at,omitempty"`
 	PollID          string         `json:"poll_id"`
 	Title           string         `json:"title"`
 	Anonymous       bool           `json:"anonymous"`
